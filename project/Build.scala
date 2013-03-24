@@ -4,7 +4,7 @@ import PlayProject._
 
 object ApplicationBuild extends Build {
 
-    val appName         = "Play20WithNeo4J"
+    val appName         = "mindex"
     val appVersion      = "1.0"
 
   	val sbtIdeaRepo = "sbt-idea-repo" at "http://mpeltonen.github.com/maven/"
