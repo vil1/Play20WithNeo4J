@@ -11,7 +11,8 @@ import models._
 import dispatch._
 import utils.dispatch.PlayJsonDispatchHttp._
 import utils.dispatch.ModelDispatchHttp._
-import utils.persistence.GraphService
+import utils.persistence.{GraphOperation, GraphService}
+import java.util.Date
 
 trait Neo4JRestService extends GraphService[Model[_]] {
 
@@ -22,6 +23,7 @@ trait Neo4JRestService extends GraphService[Model[_]] {
   val neoRestNode = neoRestBase / "node"
   val neoRestRel = neoRestBase / "relationship"
   val neoRestCypher = neoRestBase / "cypher"
+  val neoDataBatch = neoRestBase / "batch"
 
   def selfRestUriToId(uri: String) = uri.substring(uri.lastIndexOf('/') + 1).toInt
 
@@ -186,4 +188,58 @@ trait Neo4JRestService extends GraphService[Model[_]] {
         jsValue => //((jsValue \ "self").as[String], (jsValue \ "data").as[JsObject])
       })
   }
+
+  def doIntransaction(operations: GraphOperation*) {
+    Http(
+      neoDataBatch << (stringify(
+        JsArray(
+          (operations zip (Stream.from(0))).map {
+            pair =>
+              val(operation, id ) = pair
+              JsObject(
+                Seq(
+                  "method" -> JsString(operation.method),
+                  "to" -> JsString(operation.uri.toString),
+                  "body" -> operation.body,
+                  "id" -> JsNumber(id)
+                )
+              )
+          }
+        )
+      )) <:< Map("Accept" -> "application/json")
+      >|
+    )
+  }
+
+  case class CreateNode[M <: Model[_]](model :M) extends GraphOperation[M] {
+    override val uri = "/node"
+    override val method = "PUT"
+
+    def body(implicit f: Format[M]) = f.writes(model)
+
+  }
+
+
+
+  case class CreateRelation(source: String, destination: String, relationType: String, properties : JsValue) extends  GraphOperation[Any] {
+    override lazy val uri = source + "/relationships"
+
+    override val method = "PUT"
+
+    def body(implicit _unused: Format[Any]) = JsObject(
+      Seq(
+        "data" -> properties,
+        "to" -> JsString(destination),
+        "type" -> JsString(relationType)
+      )
+    )
+  }
+
+  case class BackReference(index: Int)
+
+  doIntransaction(
+    CreateNode(User(1,"toto")),
+    CreateNode(User(2,"titi")),
+    CreateRelation("{0}", "{1}", "KNOWS", JsObject(Nil))
+  )
 }

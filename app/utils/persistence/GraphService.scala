@@ -1,6 +1,9 @@
 package utils.persistence
 
-import play.api.libs.json.Format
+import play.api.libs.json.{JsValue, Format}
+import dispatch.Http
+import java.net.URL
+import models.Model
 
 /**
  * User: andy
@@ -25,4 +28,12 @@ trait GraphService[Node] {
   def indexNode[T <: Node](model: T, indexName: String, key: String, value: String)
 
   def createRelationship(start: Node, rel: String, end: Node)
+
+  def doIntransaction(operations : GraphOperation*)
+}
+
+trait GraphOperation[M <: Model[_]] {
+  def method:String
+  def uri:String
+  def body(implicit f: Format[M]):JsValue
 }
